@@ -5,8 +5,14 @@ import { AppModule } from "../src/app.module";
 import { CreateReviewDto } from "../src/review/dto/create-review.dto";
 import { Types, disconnect } from "mongoose";
 import { REVIEW_NOT_FOUND } from "../src/review/review.constants";
+import { AuthDto } from "../src/auth/dto/auth.dto";
+import { USER_NOT_FOUND_ERROR, WRONG_PASSWORD_ERROR } from "../src/auth/auth.constants";
 
 const productId = new Types.ObjectId().toHexString();
+const loginDto: AuthDto = {
+	login: 'a3@a.ru',
+	password: '3'
+}
 
 const testDto: CreateReviewDto = {
 	name: 'Тест',
@@ -21,6 +27,7 @@ describe('AppController (e2e)', () => {
 	let app: INestApplication;
 	let createdId: string;
 	let productId: string;
+	let token: string;
 
   beforeEach(async () => {
 	const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -29,6 +36,12 @@ describe('AppController (e2e)', () => {
 
 	app = moduleFixture.createNestApplication();
 	await app.init();
+
+	const { body } = await request(app.getHttpServer())
+						.post('/auth/login')
+						.send(loginDto)
+	  token = body.access_token;
+
   });
 
   it('/review/create (POST) - success', async () => {
@@ -57,6 +70,7 @@ describe('AppController (e2e)', () => {
 	it('/review/byProduct/:productId (GET) - success', async () => {
 		return request(app.getHttpServer())
 		.get('/review/byProduct/'+productId)
+		.set('Authorization', 'Bearer '+token)
 		.expect(200)
 		.then( ( {body}: request.Response ) => {
 			expect(body.length).toBe(1);
@@ -66,6 +80,7 @@ describe('AppController (e2e)', () => {
 	it('/review/byProduct/:productId (GET) - fail', async () => {
 		return request(app.getHttpServer())
 		.get('/review/byProduct/'+ new Types.ObjectId().toHexString())
+		.set('Authorization', 'Bearer '+token)
 		.expect(200)
 		.then( ( {body}: request.Response ) => {
 			expect(body.length).toBe(0);
@@ -76,15 +91,49 @@ describe('AppController (e2e)', () => {
 	it('/review/:id (DELETE) - success', async () => {
 		return request(app.getHttpServer())
 		.delete('/review/'+createdId)
+		.set('Authorization', 'Bearer '+token)
 		.expect(200)
 	});
 
 	it('/review/:id (DELETE) - fail', async () => {
 		return request(app.getHttpServer())
 		.delete('/review/'+new Types.ObjectId().toHexString())
+		.set('Authorization', 'Bearer '+token)
 		.expect(404, {
 			statusCode:404,
 			message: REVIEW_NOT_FOUND
+		});
+	});
+
+	it('/auth/login (POST) - success', async () => {
+		return request(app.getHttpServer())
+		.post('/auth/login')
+		.send(loginDto)
+		.expect(200)
+		.then( ( {body}: request.Response ) => {
+			expect(body.access_token).toBeDefined()
+		})
+	});
+
+	it('/auth/login (POST) - fail, wrong login', async () => {
+		return request(app.getHttpServer())
+		.post('/auth/login')
+		.send({ ...loginDto, login:'2' })
+		.expect(401, {
+			statusCode:401,
+			message: USER_NOT_FOUND_ERROR,
+			error: 'Unauthorized'
+		});
+	});
+
+	it('/auth/login (POST) - fail, wrong password', async () => {
+		return request(app.getHttpServer())
+		.post('/auth/login')
+		.send({ ...loginDto, password:'1' })
+		.expect(401, {
+			statusCode:401,
+			message: WRONG_PASSWORD_ERROR,
+			error: 'Unauthorized'
 		});
 	});
 
