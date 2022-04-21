@@ -2,6 +2,7 @@ import { Base, TimeStamps } from "@typegoose/typegoose/lib/defaultClasses";
 import { prop } from "@typegoose/typegoose";
 
 class ProductCharacteistics {
+
 	@prop()
 	name: string;
 
@@ -43,7 +44,7 @@ export class ProductModel extends TimeStamps{
 	categories: string[];
 
 	@prop({ type: () => [String] })
-	tags: string;
+	tags: string[];
 
 	@prop({ type: () => [ProductCharacteistics], _id: false })
 	characteristics: ProductCharacteistics[];
